@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GEMINI_MODEL = "gemini-2.5-flash-preview-04-17";
@@ -85,54 +87,69 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Check auth and usage limits
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const serviceSupabase = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    if (user) {
+      // Get or create profile
+      let { data: profile } = await serviceSupabase
+        .from("profiles")
+        .select("plan, pages_used_this_month, pages_limit")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile) {
+        const { data: newProfile } = await serviceSupabase
+          .from("profiles")
+          .insert({
+            id: user.id,
+            email: user.email,
+            plan: "free",
+            pages_used_this_month: 0,
+            pages_limit: 3,
+          })
+          .select()
+          .single();
+        profile = newProfile;
+      }
+
+      // Check free tier limit
+      if (profile && profile.plan !== "pro" && profile.pages_used_this_month >= profile.pages_limit) {
+        return NextResponse.json({ error: "limit_reached" }, { status: 403 });
+      }
+
+      const tpl = TEMPLATES[template] || TEMPLATES.saas;
+      const html = await generateHtml(productName, description, tpl);
+
+      // Increment usage
+      await serviceSupabase
+        .from("profiles")
+        .update({ pages_used_this_month: (profile?.pages_used_this_month ?? 0) + 1 })
+        .eq("id", user.id);
+
+      // Save page record
+      await serviceSupabase.from("pages").insert({
+        user_id: user.id,
+        product_name: productName,
+        description,
+        template,
+        html,
+      });
+
+      return NextResponse.json({ html });
+    }
+
+    // Unauthenticated user — generate without saving (frontend enforces 1-time limit)
     const tpl = TEMPLATES[template] || TEMPLATES.saas;
-
-    if (!GEMINI_API_KEY) {
-      return NextResponse.json({ html: getMockHtml(productName, description, tpl.accentColor, tpl.bg) });
-    }
-
-    const systemPrompt = SYSTEM_PROMPT(tpl.style, tpl.accentColor, tpl.bg);
-    const userPrompt = `Product Name: ${productName}
-Description: ${description}
-Template style: ${tpl.name}
-
-Generate the complete landing page HTML now. Make it specific to this product — use the product name and description to write real copy, not generic placeholders.`;
-
-    const response = await fetch(GEMINI_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: systemPrompt + "\n\n" + userPrompt }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.8,
-          maxOutputTokens: 32768,
-          topP: 0.95,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const err = await response.text();
-      console.error("Gemini API error:", err);
-      return NextResponse.json({ html: getMockHtml(productName, description, tpl.accentColor, tpl.bg) });
-    }
-
-    const data = await response.json();
-    let html = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    // Strip markdown code fences
-    html = html.replace(/^```html?\n?/i, "").replace(/\n?```$/i, "").trim();
-
-    if (!html || !html.includes("<html")) {
-      return NextResponse.json({ html: getMockHtml(productName, description, tpl.accentColor, tpl.bg) });
-    }
-
+    const html = await generateHtml(productName, description, tpl);
     return NextResponse.json({ html });
+
   } catch (error) {
     console.error("Generate error:", error);
     return NextResponse.json(
@@ -140,6 +157,59 @@ Generate the complete landing page HTML now. Make it specific to this product �
       { status: 500 }
     );
   }
+}
+
+async function generateHtml(
+  productName: string,
+  description: string,
+  tpl: { name: string; accentColor: string; bg: string; style: string }
+): Promise<string> {
+  if (!GEMINI_API_KEY) {
+    return getMockHtml(productName, description, tpl.accentColor, tpl.bg);
+  }
+
+  const systemPrompt = SYSTEM_PROMPT(tpl.style, tpl.accentColor, tpl.bg);
+  const userPrompt = `Product Name: ${productName}
+Description: ${description}
+Template style: ${tpl.name}
+
+Generate the complete landing page HTML now. Make it specific to this product — use the product name and description to write real copy, not generic placeholders.`;
+
+  const response = await fetch(GEMINI_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: systemPrompt + "\n\n" + userPrompt }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.8,
+        maxOutputTokens: 32768,
+        topP: 0.95,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    console.error("Gemini API error:", err);
+    return getMockHtml(productName, description, tpl.accentColor, tpl.bg);
+  }
+
+  const data = await response.json();
+  let html = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+  // Strip markdown code fences
+  html = html.replace(/^```html?\n?/i, "").replace(/\n?```$/i, "").trim();
+
+  if (!html || !html.includes("<html")) {
+    return getMockHtml(productName, description, tpl.accentColor, tpl.bg);
+  }
+
+  return html;
 }
 
 function getMockHtml(productName: string, description: string, accent: string, bg: string): string {

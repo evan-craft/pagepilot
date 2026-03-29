@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 const TEMPLATES = [
   { id: "saas", name: "SaaS", icon: "💻", desc: "Dark & professional" },
@@ -10,6 +11,12 @@ const TEMPLATES = [
   { id: "creator", name: "Creator", icon: "🎨", desc: "Personal & expressive" },
   { id: "minimal", name: "Minimal", icon: "⚡", desc: "Clean & focused" },
 ];
+
+interface Profile {
+  plan: string;
+  pages_used_this_month: number;
+  pages_limit: number;
+}
 
 export default function GeneratePage() {
   const [productName, setProductName] = useState("");
@@ -20,11 +27,72 @@ export default function GeneratePage() {
   const [error, setError] = useState<string | null>(null);
   const [genTime, setGenTime] = useState<number | null>(null);
 
+  // Auth state
+  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [guestGenCount, setGuestGenCount] = useState(0);
+
+  // Modals
+  const [showSignupModal, setShowSignupModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+
+  const supabase = createClient();
+
+  const loadProfile = useCallback(async (userId: string) => {
+    const res = await fetch("/api/profile");
+    if (res.ok) {
+      const data = await res.json();
+      setProfile(data.profile);
+    } else {
+      // fallback: just set defaults
+      setProfile({ plan: "free", pages_used_this_month: 0, pages_limit: 3 });
+    }
+    // suppress unused warning
+    void userId;
+  }, []);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUser({ email: user.email! });
+        loadProfile(user.id);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser({ email: session.user.email! });
+        loadProfile(session.user.id);
+      } else {
+        setUser(null);
+        setProfile(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase, loadProfile]);
+
   const handleGenerate = async () => {
     if (!productName.trim() || !description.trim()) {
       setError("Please fill in both fields.");
       return;
     }
+
+    // Guest gate: allow 1 free generation, then require signup
+    if (!user) {
+      if (guestGenCount >= 1) {
+        setShowSignupModal(true);
+        return;
+      }
+    }
+
+    // Logged in: check if limit reached
+    if (user && profile && profile.plan !== "pro" && profile.pages_used_this_month >= profile.pages_limit) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
     setError(null);
     setLoading(true);
     setGeneratedHtml(null);
@@ -37,10 +105,29 @@ export default function GeneratePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productName, description, template }),
       });
+
+      if (res.status === 403) {
+        const data = await res.json();
+        if (data.error === "limit_reached") {
+          setShowUpgradeModal(true);
+          return;
+        }
+      }
+
       if (!res.ok) throw new Error("Generation failed");
+
       const data = await res.json();
       setGeneratedHtml(data.html);
       setGenTime(Math.round((Date.now() - t0) / 100) / 10);
+
+      if (!user) {
+        setGuestGenCount((c) => c + 1);
+      } else if (profile) {
+        // Optimistically update local count
+        setProfile((p) =>
+          p ? { ...p, pages_used_this_month: p.pages_used_this_month + 1 } : p
+        );
+      }
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -65,6 +152,22 @@ export default function GeneratePage() {
     if (w) { w.document.write(generatedHtml); w.document.close(); }
   };
 
+  const handleUpgrade = async () => {
+    setUpgradeLoading(true);
+    try {
+      const res = await fetch("/api/checkout", { method: "POST" });
+      if (!res.ok) throw new Error("Failed");
+      const { url } = await res.json();
+      if (url) window.location.href = url;
+    } catch {
+      setUpgradeLoading(false);
+    }
+  };
+
+  const isPro = profile?.plan === "pro";
+  const pagesUsed = profile?.pages_used_this_month ?? 0;
+  const pagesLimit = profile?.pages_limit ?? 3;
+
   return (
     <div className="min-h-screen">
       {/* Nav */}
@@ -73,9 +176,38 @@ export default function GeneratePage() {
           <Link href="/" className="text-xl font-bold bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] bg-clip-text text-transparent">
             ✈️ PagePilot
           </Link>
-          <Link href="/" className="text-sm text-[#a0a0b8] hover:text-white transition">
-            ← Back to Home
-          </Link>
+          <div className="flex items-center gap-4">
+            {user ? (
+              <>
+                {!isPro && (
+                  <span className="text-sm text-[#a0a0b8] hidden sm:block">
+                    {pagesUsed}/{pagesLimit} pages used this month
+                  </span>
+                )}
+                {isPro && (
+                  <span className="text-sm text-[#a29bfe] hidden sm:block font-medium">
+                    ⚡ Pro — Unlimited
+                  </span>
+                )}
+                <Link
+                  href="/dashboard"
+                  className="text-sm text-[#a0a0b8] hover:text-white border border-white/10 rounded-lg px-3 py-1.5 hover:border-white/20 transition"
+                >
+                  Dashboard
+                </Link>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="text-sm text-[#a0a0b8] hover:text-white border border-white/10 rounded-lg px-3 py-1.5 hover:border-white/20 transition"
+              >
+                Sign In
+              </Link>
+            )}
+            <Link href="/" className="text-sm text-[#a0a0b8] hover:text-white transition hidden sm:block">
+              ← Back
+            </Link>
+          </div>
         </div>
       </nav>
 
@@ -252,6 +384,74 @@ export default function GeneratePage() {
           </div>
         </div>
       </div>
+
+      {/* Guest Signup Modal */}
+      {showSignupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6 bg-black/60 backdrop-blur-sm">
+          <div
+            className="w-full max-w-md rounded-2xl border border-white/10 p-8 text-center"
+            style={{ background: "#12121a" }}
+          >
+            <div className="text-4xl mb-4">🚀</div>
+            <h2 className="text-2xl font-bold text-white mb-3">
+              Create a free account to continue
+            </h2>
+            <p className="text-[#a0a0b8] mb-6">
+              You&apos;ve used your free guest generation. Sign up free to get 3 pages/month — no credit card required.
+            </p>
+            <div className="flex flex-col gap-3">
+              <Link
+                href="/login"
+                className="w-full px-6 py-3 bg-[#6c5ce7] text-white rounded-xl font-bold hover:bg-[#5a4bd4] transition"
+              >
+                Create Free Account →
+              </Link>
+              <button
+                onClick={() => setShowSignupModal(false)}
+                className="text-[#a0a0b8] text-sm hover:text-white transition"
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6 bg-black/60 backdrop-blur-sm">
+          <div
+            className="w-full max-w-md rounded-2xl border border-white/10 p-8 text-center"
+            style={{ background: "#12121a" }}
+          >
+            <div className="text-4xl mb-4">⚡</div>
+            <h2 className="text-2xl font-bold text-white mb-3">
+              You&apos;ve hit your monthly limit
+            </h2>
+            <p className="text-[#a0a0b8] mb-2">
+              You&apos;ve used all {pagesLimit} pages this month on the free plan.
+            </p>
+            <p className="text-[#a0a0b8] mb-6">
+              Upgrade to Pro for just <span className="text-white font-bold">$9/month</span> and get unlimited page generation.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={handleUpgrade}
+                disabled={upgradeLoading}
+                className="w-full px-6 py-3 bg-[#6c5ce7] text-white rounded-xl font-bold hover:bg-[#5a4bd4] transition disabled:opacity-50"
+              >
+                {upgradeLoading ? "Redirecting to Stripe..." : "⚡ Upgrade to Pro — $9/mo"}
+              </button>
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="text-[#a0a0b8] text-sm hover:text-white transition"
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
