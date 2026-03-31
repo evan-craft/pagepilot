@@ -5,6 +5,6 @@
   "installCommand": "npm install",
   "regions": ["sfo1"],
   "env": {
-    "NEXT_PUBLIC_APP_URL": "https://pagepilot.app"
+    "NEXT_PUBLIC_APP_URL": "https://fastpage.build"
   }
 }

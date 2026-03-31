@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "PagePilot — AI Landing Page Generator",
+  title: "FastPage — AI Landing Page Generator",
   description: "Generate beautiful, conversion-optimized landing pages in seconds with AI.",
 };
 

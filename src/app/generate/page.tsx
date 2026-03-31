@@ -177,7 +177,7 @@ export default function GeneratePage() {
       <nav className="fixed top-0 w-full z-50 bg-[#0a0a0f]/80 backdrop-blur-md border-b border-white/5">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="text-xl font-bold bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] bg-clip-text text-transparent">
-            ✈️ PagePilot
+            ⚡ FastPage
           </Link>
           <div className="flex items-center gap-4">
             {user ? (

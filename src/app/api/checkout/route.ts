@@ -29,7 +29,7 @@ export async function POST() {
         price_data: {
           currency: "usd",
           product_data: {
-            name: "PagePilot Pro",
+            name: "FastPage Pro",
             description: "Unlimited landing page generation, every month.",
           },
           unit_amount: 900, // $9.00

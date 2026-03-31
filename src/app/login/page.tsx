@@ -59,7 +59,7 @@ export default function LoginPage() {
             href="/"
             className="text-xl font-bold bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] bg-clip-text text-transparent"
           >
-            ✈️ PagePilot
+            ⚡ FastPage
           </Link>
         </div>
       </div>

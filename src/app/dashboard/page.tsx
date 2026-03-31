@@ -98,7 +98,7 @@ export default async function DashboardPage({
             href="/"
             className="text-xl font-bold bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] bg-clip-text text-transparent"
           >
-            ✈️ PagePilot
+            ⚡ FastPage
           </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm text-[#a0a0b8] hidden sm:block">

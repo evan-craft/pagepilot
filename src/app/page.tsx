@@ -5,7 +5,7 @@ function Navbar() {
     <nav className="fixed top-0 w-full z-50 bg-[#0a0a0f]/80 backdrop-blur-md border-b border-white/5">
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         <Link href="/" className="text-xl font-bold bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] bg-clip-text text-transparent">
-          ✈️ PagePilot
+          ⚡ FastPage
         </Link>
         <div className="hidden md:flex items-center gap-8 text-sm text-[#a0a0b8]">
           <a href="#features" className="hover:text-white transition">Features</a>
@@ -63,7 +63,7 @@ function Hero() {
               <div className="w-3 h-3 rounded-full bg-green-500/70" />
             </div>
             <div className="bg-[#0a0a0f] rounded-lg p-6 text-left font-mono text-sm text-[#a0a0b8]">
-              <p><span className="text-[#6c5ce7]">const</span> page = <span className="text-[#a29bfe]">await</span> pagepilot.<span className="text-green-400">generate</span>({`{`}</p>
+              <p><span className="text-[#6c5ce7]">const</span> page = <span className="text-[#a29bfe]">await</span> fastpage.<span className="text-green-400">generate</span>({`{`}</p>
               <p className="pl-4">product: <span className="text-amber-300">&quot;My SaaS App&quot;</span>,</p>
               <p className="pl-4">description: <span className="text-amber-300">&quot;The best tool ever&quot;</span></p>
               <p>{`}`}); <span className="text-green-600">// ✨ Done in 3 seconds</span></p>
@@ -215,13 +215,13 @@ function Footer() {
   return (
     <footer className="border-t border-white/5 py-10 px-6">
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-[#a0a0b8]">
-        <div className="font-semibold text-white">✈️ PagePilot</div>
+        <div className="font-semibold text-white">⚡ FastPage</div>
         <div className="flex gap-6">
           <a href="#features" className="hover:text-white transition">Features</a>
           <a href="#pricing" className="hover:text-white transition">Pricing</a>
           <Link href="/generate" className="hover:text-white transition">Generator</Link>
         </div>
-        <div>© 2026 PagePilot. All rights reserved.</div>
+        <div>© 2026 FastPage. All rights reserved.</div>
       </div>
     </footer>
   );
