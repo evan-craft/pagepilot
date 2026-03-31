@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import LogoutButton from "./LogoutButton";
 import UpgradeButton from "./UpgradeButton";
+import PageActions from "./PageActions";
 
 interface Profile {
   id: string;
@@ -241,6 +242,10 @@ export default async function DashboardPage({
                         year: "numeric",
                       })}
                     </p>
+                    <PageActions
+                      pageId={page.id}
+                      productName={page.product_name}
+                    />
                   </div>
                 ))}
               </div>
