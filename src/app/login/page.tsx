@@ -16,8 +16,8 @@ export default function LoginPage() {
 
   const supabase = createClient();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    e?.preventDefault();
     setError(null);
     setSuccess(null);
     setLoading(true);
@@ -80,7 +80,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-white mb-2">
                 Email
@@ -122,7 +122,8 @@ export default function LoginPage() {
             )}
 
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={loading}
               className="w-full px-6 py-3 bg-[#6c5ce7] text-white rounded-xl font-bold hover:bg-[#5a4bd4] transition shadow-lg shadow-[#6c5ce7]/25 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -132,7 +133,7 @@ export default function LoginPage() {
                 ? "Sign In"
                 : "Create Account"}
             </button>
-          </form>
+          </div>
 
           <div className="mt-6 text-center">
             <p className="text-[#a0a0b8] text-sm">

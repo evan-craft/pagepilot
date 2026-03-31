@@ -375,7 +375,7 @@ export default function GeneratePage() {
                       srcDoc={generatedHtml}
                       className="w-full h-[700px] border-0"
                       title="Generated Landing Page Preview"
-                      sandbox="allow-scripts"
+                      sandbox="allow-scripts allow-forms allow-popups"
                     />
                   </div>
                 </div>
