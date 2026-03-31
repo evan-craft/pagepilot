@@ -6,7 +6,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GEMINI_MODEL = "gemini-2.5-flash-preview-04-17";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-const TEMPLATES: Record<string, { name: string; accentColor: string; bg: string; style: string }> = {
+const TEMPLATES: Record<string, { name: string; accentColor: string; bg: string; style: string; isPhysical?: boolean }> = {
   saas: {
     name: "SaaS",
     accentColor: "#6c5ce7",
@@ -37,9 +37,30 @@ const TEMPLATES: Record<string, { name: string; accentColor: string; bg: string;
     bg: "#050505",
     style: "ultra-minimal product — near-black background, green/emerald accents, clean whitespace, no clutter, Swiss design",
   },
+  ecommerce: {
+    name: "E-Commerce",
+    accentColor: "#f59e0b",
+    bg: "#ffffff",
+    style: "bright e-commerce product page — white/light background, amber/gold accents, hero product showcase with large imagery area (use pure CSS to create a beautiful product mockup with shapes/gradients), buy button prominently placed, star ratings, key specs/materials, benefits list, customer reviews section",
+    isPhysical: true,
+  },
+  lifestyle: {
+    name: "Lifestyle",
+    accentColor: "#84cc16",
+    bg: "#0f0f0a",
+    style: "lifestyle/home goods — dark warm earthy background, lime/sage green accents, large hero visual, emotional benefit-driven copy (not technical specs), aspirational photography-style CSS art, social proof with lifestyle quotes",
+    isPhysical: true,
+  },
+  food: {
+    name: "Food & Kitchen",
+    accentColor: "#ef4444",
+    bg: "#fafaf9",
+    style: "food and kitchen product — warm cream/white background, red/tomato accents, appetizing and warm design, ingredient/material highlights, chef/expert endorsement section, satisfaction guarantee badge, recipe or usage ideas section",
+    isPhysical: true,
+  },
 };
 
-const SYSTEM_PROMPT = (templateStyle: string, accentColor: string, bgColor: string) => `You are an expert landing page designer and conversion copywriter. Generate a complete, stunning HTML landing page.
+const SYSTEM_PROMPT = (templateStyle: string, accentColor: string, bgColor: string, isPhysical = false) => `You are an expert landing page designer and conversion copywriter. Generate a complete, stunning HTML landing page.
 
 DESIGN REQUIREMENTS:
 - Self-contained HTML with ALL CSS inline in <style> tag (zero external dependencies)
@@ -48,7 +69,24 @@ DESIGN REQUIREMENTS:
 - Responsive mobile-first design with media queries
 - Smooth CSS animations (fade-in on scroll via @keyframes + CSS classes, NO JS needed for animations)
 
-REQUIRED SECTIONS (in order):
+${isPhysical ? `REQUIRED SECTIONS for PHYSICAL PRODUCT (in order):
+1. **Navbar** — Brand logo + nav links (About, Reviews, Buy) + "Buy Now" CTA button
+2. **Hero** — Product name as big headline, one-line tagline, prominent "Buy Now" / "Shop Now" button + "See Details" secondary, large product visual area (use pure CSS art with shapes/gradients/shadows to represent the product beautifully — no broken img tags)
+3. **Trust Bar** — Star rating (4.8★), review count, badges: "Free Shipping", "30-Day Returns", "Made in USA" (or relevant)
+4. **Product Highlights** — 3-column grid: key materials/specs with icons (e.g. 🔩 Stainless Steel, ♻️ BPA-Free, 🌡️ Keeps Fresh 2 Weeks)
+5. **Benefits** — 2-column layout: LEFT: large visual/CSS art, RIGHT: 4-5 bullet benefits with checkmarks, "Buy Now" button
+6. **How It Works / How to Use** — 3 numbered steps (e.g. Fill → Seal → Enjoy)
+7. **Customer Reviews** — 4 review cards with name, verified buyer badge, star rating, 2-3 line quote
+8. **FAQ** — 4 product questions (materials, care, sizing, shipping)
+9. **Guarantee Banner** — Satisfaction guarantee + free shipping + easy returns
+10. **Footer** — Links, copyright
+
+COPY GUIDELINES FOR PHYSICAL PRODUCTS:
+- Emphasize sensory/tactile benefits: feel, quality, durability
+- Use specifics: "18/8 stainless steel", "keeps coffee hot 6 hours", "fits 32oz"
+- CTAs: "Buy Now →", "Shop Now", "Add to Cart", "Order Today"
+- Reviews should mention specific use cases and benefits felt
+- NO subscription pricing or SaaS tiers — this is a one-time purchase product` : `REQUIRED SECTIONS (in order):
 1. **Navbar** — Logo + nav links + CTA button (fixed, backdrop blur)
 2. **Hero** — Big bold headline (2 lines max), subheadline, primary CTA + secondary CTA, hero visual/mockup (use pure CSS art or emoji composition)
 3. **Social Proof Bar** — "Trusted by X+ users" + 3-4 company placeholder names in muted text
@@ -64,7 +102,7 @@ COPY GUIDELINES:
 - Headlines should be specific, benefit-driven, not generic
 - Use power words: instant, effortless, powerful, zero X required
 - CTAs: "Start for Free →", "See it in Action", "Get Started Free"
-- Testimonials should feel real: specific names, roles, companies
+- Testimonials should feel real: specific names, roles, companies`}
 
 CSS REQUIREMENTS:
 - Use CSS custom properties (--accent, --bg, etc.)
@@ -162,13 +200,13 @@ export async function POST(req: NextRequest) {
 async function generateHtml(
   productName: string,
   description: string,
-  tpl: { name: string; accentColor: string; bg: string; style: string }
+  tpl: { name: string; accentColor: string; bg: string; style: string; isPhysical?: boolean }
 ): Promise<string> {
   if (!GEMINI_API_KEY) {
     return getMockHtml(productName, description, tpl.accentColor, tpl.bg);
   }
 
-  const systemPrompt = SYSTEM_PROMPT(tpl.style, tpl.accentColor, tpl.bg);
+  const systemPrompt = SYSTEM_PROMPT(tpl.style, tpl.accentColor, tpl.bg, tpl.isPhysical);
   const userPrompt = `Product Name: ${productName}
 Description: ${description}
 Template style: ${tpl.name}

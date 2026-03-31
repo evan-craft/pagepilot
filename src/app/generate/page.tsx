@@ -10,6 +10,9 @@ const TEMPLATES = [
   { id: "agency", name: "Agency", icon: "🏢", desc: "Premium & trust-building" },
   { id: "creator", name: "Creator", icon: "🎨", desc: "Personal & expressive" },
   { id: "minimal", name: "Minimal", icon: "⚡", desc: "Clean & focused" },
+  { id: "ecommerce", name: "E-Commerce", icon: "🛒", desc: "Physical product page" },
+  { id: "lifestyle", name: "Lifestyle", icon: "🌿", desc: "Home & lifestyle goods" },
+  { id: "food", name: "Food & Kitchen", icon: "🍳", desc: "Food & kitchen products" },
 ];
 
 interface Profile {
